@@ -1,4 +1,10 @@
-
+import DocRow from "@/components/DocRow";
+import ListDocsFilters from "@/components/ListDocsFilters";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { Colors } from "@/constants/Colors";
+import { Documento } from "@/models/Documento";
+import useStore from "@/store/useStore";
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -7,15 +13,6 @@ import { DateTime } from "luxon";
 import numeral from "numeral";
 import { useCallback, useState } from "react";
 import { FlatList, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
-
-import Animated from "react-native-reanimated";
-
-import ListDocsFilters from "@/components/ListDocsFilters"; // Import the component
-import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Colors } from "@/constants/Colors";
-import { Documento } from "@/models/Documento";
-import useStore from "@/store/useStore";
 
 const fetchDocuments = async ({ queryKey }: any) => {
     const [_key, { fechaInicio, fechaTermino, tipoDocFilterId, categoriaFilterId, searchPhrase, searchPhraseIgnoreOtherFilters, sessionHash, apiUrl }] = queryKey;
@@ -45,13 +42,8 @@ const DocHeader = () => (
     </View>
 );
 
-const DocRow = ({ item }: { item: Documento }) => (
-    <TouchableOpacity onPress={() => router.push(`/docs/edit/${item.id}`)} className="flex-row p-2 border-b border-gray-200 dark:border-gray-700 items-center gap-2">
-        <ThemedText className="text-center">{DateTime.fromISO(item.fecha).toFormat('dd-MM-yyyy')}</ThemedText>
-        <ThemedText className="flex-1 text-left" numberOfLines={1}>{item.proposito}</ThemedText>
-        <ThemedText className="text-right">{numeral(item.monto).format('$0,0')}</ThemedText>
-    </TouchableOpacity>
-);
+
+
 
 export default function DocsScreen() {
     const queryClient = useQueryClient();
@@ -79,6 +71,17 @@ export default function DocsScreen() {
             queryClient.invalidateQueries({ queryKey: ['documents'] });
         },
     });
+
+    const handleDelete = (id: number) => {
+        if (sessionHash && apiUrl) {
+            deleteMutation.mutate({ id, sessionHash, apiUrl });
+        }
+    };
+
+    const handleEdit = (id: number) => {
+        router.push(`/docs/edit/${id}`);
+    };
+
 
     const sumaTotalDocs = docsList.reduce((acc: number, doc: Documento) => acc + doc.monto, 0);
 
@@ -111,8 +114,8 @@ export default function DocsScreen() {
     };
 
     const renderItem = useCallback(
-        ({ item }: { item: Documento }) => <DocRow item={item} />,
-        []
+        ({ item }: { item: Documento }) => <DocRow item={item} onDelete={() => handleDelete(item.id)} onEdit={() => handleEdit(item.id)} />,
+        [] // Dependencies are stable
     );
 
     const tipoDocFilterName = tipoDocumentos.find(td => td.id === tipoDocFilterId)?.proposito || 'Tipo Doc';
@@ -127,17 +130,6 @@ export default function DocsScreen() {
                     </TouchableOpacity>
                 )
             }} />
-
-            <ListDocsFilters
-                visible={showFiltersModal}
-                onDismiss={() => setShowFiltersModal(false)}
-                onFilterUpdate={handleFilterUpdate}
-                initialSearchPhrase={searchPhrase}
-                initialCategoriaFilterId={categoriaFilterId}
-                initialFechaInicio={fechaInicio}
-                initialFechaTermino={fechaTermino}
-            />
-
 
             <Modal
                 visible={showTipoDocFilter}
@@ -181,17 +173,26 @@ export default function DocsScreen() {
             </View>
 
             {/* Document List */}
-            <Animated.FlatList
+            <FlatList
                 data={docsList}
                 onRefresh={refetch}
                 refreshing={isFetching}
                 ListHeaderComponent={<DocHeader />}
                 keyExtractor={(item) => item.id.toString()}
-                // itemLayoutAnimation={LinearTransition.easing().duration(200)}
                 renderItem={renderItem}
                 ListEmptyComponent={<ThemedText className="text-center mt-5">No hay documentos</ThemedText>}
                 initialNumToRender={15}
                 contentContainerStyle={{ paddingBottom: 80 }}
+            />
+
+            <ListDocsFilters
+                visible={showFiltersModal}
+                onDismiss={() => setShowFiltersModal(false)}
+                onFilterUpdate={handleFilterUpdate}
+                initialSearchPhrase={searchPhrase}
+                initialCategoriaFilterId={categoriaFilterId}
+                initialFechaInicio={fechaInicio}
+                initialFechaTermino={fechaTermino}
             />
         </ThemedView>
     );
