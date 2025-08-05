@@ -8,8 +8,8 @@ import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import useStore from '../store/useStore';
-import './global.css';
 import { configureNumeral } from './configure-numeral';
+import './global.css';
 
 // Configure numeral locale
 configureNumeral();
@@ -51,7 +51,7 @@ export default function RootLayout() {
       const handleNavigation = async () => {
         if (sessionHash) {
           await fetchInitialData(); // Fetch data if we have a session
-          router.replace('/(drawer)/dashboard');
+          router.replace('/dashboard');
         } else {
           router.replace('/login');
         }

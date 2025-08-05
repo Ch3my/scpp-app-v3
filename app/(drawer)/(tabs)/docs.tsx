@@ -1,18 +1,22 @@
+
 import DocRow from "@/components/DocRow";
 import ListDocsFilters from "@/components/ListDocsFilters";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import TipoDocSheet from "@/components/TipoDocSheet";
 import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
 import { Documento } from "@/models/Documento";
 import useStore from "@/store/useStore";
 import { Ionicons } from '@expo/vector-icons';
+import BottomSheet from "@gorhom/bottom-sheet";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { Stack, router } from "expo-router";
 import { DateTime } from "luxon";
 import numeral from "numeral";
-import { useCallback, useState } from "react";
-import { FlatList, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { FlatList, TouchableOpacity, View } from "react-native";
 
 const fetchDocuments = async ({ queryKey }: any) => {
     const [_key, { fechaInicio, fechaTermino, tipoDocFilterId, categoriaFilterId, searchPhrase, searchPhraseIgnoreOtherFilters, sessionHash, apiUrl }] = queryKey;
@@ -42,11 +46,10 @@ const DocHeader = () => (
     </View>
 );
 
-
-
-
 export default function DocsScreen() {
     const queryClient = useQueryClient();
+    const colorScheme = useColorScheme();
+    const themeColors = colorScheme === 'dark' ? Colors.dark : Colors.light;
 
     const { sessionHash, apiUrl, tipoDocumentos } = useStore();
 
@@ -57,7 +60,8 @@ export default function DocsScreen() {
     const [searchPhrase, setSearchPhrase] = useState<string | undefined>(undefined);
     const [searchPhraseIgnoreOtherFilters, setSearchPhraseIgnoreOtherFilters] = useState(true);
     const [showFiltersModal, setShowFiltersModal] = useState<boolean>(false);
-    const [showTipoDocFilter, setShowTipoDocFilter] = useState<boolean>(false);
+
+    const tipoDocBottomSheetRef = useRef<BottomSheet>(null);
 
     const { data: docsList = [], isFetching, refetch } = useQuery<Documento[]>({
         queryKey: ['documents', { fechaInicio, fechaTermino, tipoDocFilterId, categoriaFilterId, searchPhrase, searchPhraseIgnoreOtherFilters, sessionHash, apiUrl }],
@@ -82,7 +86,6 @@ export default function DocsScreen() {
         router.push(`/docs/edit/${id}`);
     };
 
-
     const sumaTotalDocs = docsList.reduce((acc: number, doc: Documento) => acc + doc.monto, 0);
 
     const onUpdateTipoDoc = ({ id }: { id: number }) => {
@@ -96,7 +99,7 @@ export default function DocsScreen() {
         setFechaInicio(newFecIni);
         setFechaTermino(newFecTer);
         setTipoDocFilterId(id);
-        setShowTipoDocFilter(false);
+        tipoDocBottomSheetRef.current?.close();
     };
 
     const handleFilterUpdate = (filters: {
@@ -115,10 +118,10 @@ export default function DocsScreen() {
 
     const renderItem = useCallback(
         ({ item }: { item: Documento }) => <DocRow item={item} onDelete={() => handleDelete(item.id)} onEdit={() => handleEdit(item.id)} />,
-        [] // Dependencies are stable
+        []
     );
 
-    const tipoDocFilterName = tipoDocumentos.find(td => td.id === tipoDocFilterId)?.proposito || 'Tipo Doc';
+    const tipoDocFilterName = tipoDocumentos.find(td => td.id === tipoDocFilterId)?.descripcion || 'Tipo Doc';
 
     return (
         <ThemedView className="flex-1">
@@ -131,31 +134,6 @@ export default function DocsScreen() {
                 )
             }} />
 
-            <Modal
-                visible={showTipoDocFilter}
-                onRequestClose={() => setShowTipoDocFilter(false)}
-                transparent={true}
-                animationType="fade"
-            >
-                <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setShowTipoDocFilter(false)} className="bg-black/50" />
-                <View className="flex-1 justify-center items-center p-8">
-                    <ThemedView className="p-5 rounded-lg w-full">
-                        <FlatList
-                            data={tipoDocumentos}
-                            keyExtractor={(item) => item.id.toString()}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    className="p-3"
-                                    onPress={() => onUpdateTipoDoc({ id: item.id })}
-                                >
-                                    <ThemedText className="text-lg">{item.proposito}</ThemedText>
-                                </TouchableOpacity>
-                            )}
-                        />
-                    </ThemedView>
-                </View>
-            </Modal>
-
             {/* Toolbar */}
             <View className="flex-row justify-between items-center p-2 bg-gray-100 dark:bg-gray-900">
                 <View className="flex-row items-center">
@@ -163,11 +141,11 @@ export default function DocsScreen() {
                         <Ionicons name="add" size={24} color="white" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => setShowFiltersModal(true)} className="p-2 ml-2 bg-gray-300 dark:bg-gray-700 rounded-full">
-                        <Ionicons name="filter" size={20} color={Colors.light.text} />
+                        <Ionicons name="filter" size={20} color={themeColors.text} />
                     </TouchableOpacity>
                 </View>
                 <ThemedText className="text-lg font-bold">${numeral(sumaTotalDocs).format('0,0')}</ThemedText>
-                <TouchableOpacity onPress={() => setShowTipoDocFilter(true)} className="p-2 bg-gray-300 dark:bg-gray-700 rounded-lg">
+                <TouchableOpacity onPress={() => tipoDocBottomSheetRef.current?.expand()} className="p-2 bg-gray-300 dark:bg-gray-700 rounded-lg">
                     <ThemedText>{tipoDocFilterName}</ThemedText>
                 </TouchableOpacity>
             </View>
@@ -193,6 +171,11 @@ export default function DocsScreen() {
                 initialCategoriaFilterId={categoriaFilterId}
                 initialFechaInicio={fechaInicio}
                 initialFechaTermino={fechaTermino}
+            />
+
+            <TipoDocSheet
+                ref={tipoDocBottomSheetRef}
+                onUpdateTipoDoc={onUpdateTipoDoc}
             />
         </ThemedView>
     );
