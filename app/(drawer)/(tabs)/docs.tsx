@@ -5,7 +5,6 @@ import axios from 'axios';
 import { Stack, router } from "expo-router";
 import { DateTime } from "luxon";
 import numeral from "numeral";
-import "numeral/locales/es-es";
 import { useCallback, useState } from "react";
 import { FlatList, Modal, StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -40,17 +39,17 @@ const deleteDocument = async ({ id, sessionHash, apiUrl }: { id: number, session
 
 const DocHeader = () => (
     <View className="flex-row bg-gray-200 p-2 dark:bg-gray-800">
-        <ThemedText className="w-1/4 text-center font-bold">Folio</ThemedText>
-        <ThemedText className="w-1/2 text-center font-bold">Proveedor</ThemedText>
+        <ThemedText className="w-1/4 text-center font-bold">Fecha</ThemedText>
+        <ThemedText className="w-1/2 text-center font-bold">Propósito</ThemedText>
         <ThemedText className="w-1/4 text-center font-bold">Monto</ThemedText>
     </View>
 );
 
 const DocRow = ({ item }: { item: Documento }) => (
-    <TouchableOpacity onPress={() => router.push(`/docs/edit/${item.id}`)} className="flex-row p-2 border-b border-gray-200 dark:border-gray-700 items-center">
-        <ThemedText className="w-1/4 text-center">{item.fecha}</ThemedText>
-        <ThemedText className="w-1/2 text-left" numberOfLines={1}>{item.proposito}</ThemedText>
-        <ThemedText className="w-1/4 text-right">{numeral(item.monto).format('$0,0')}</ThemedText>
+    <TouchableOpacity onPress={() => router.push(`/docs/edit/${item.id}`)} className="flex-row p-2 border-b border-gray-200 dark:border-gray-700 items-center gap-2">
+        <ThemedText className="text-center">{DateTime.fromISO(item.fecha).toFormat('dd-MM-yyyy')}</ThemedText>
+        <ThemedText className="flex-1 text-left" numberOfLines={1}>{item.proposito}</ThemedText>
+        <ThemedText className="text-right">{numeral(item.monto).format('$0,0')}</ThemedText>
     </TouchableOpacity>
 );
 

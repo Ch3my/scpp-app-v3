@@ -8,6 +8,10 @@ import { useEffect, useState } from 'react';
 import 'react-native-reanimated';
 import useStore from '../store/useStore';
 import './global.css';
+import { configureNumeral } from './configure-numeral';
+
+// Configure numeral locale
+configureNumeral();
 
 const queryClient = new QueryClient();
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -20,7 +24,7 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  const { sessionHash } = useStore();
+  const { sessionHash, fetchInitialData } = useStore();
   const router = useRouter();
 
   // State to track if the Zustand store is rehydrated
@@ -43,12 +47,15 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded && isStoreReady) {
-      // Navigate to the correct screen
-      if (sessionHash) {
-        router.replace('/dashboard');
-      } else {
-        router.replace('/login');
-      }
+      const handleNavigation = async () => {
+        if (sessionHash) {
+          await fetchInitialData(); // Fetch data if we have a session
+          router.replace('/dashboard');
+        } else {
+          router.replace('/login');
+        }
+      };
+      handleNavigation();
     }
   }, [loaded, isStoreReady, sessionHash, router]);
 
