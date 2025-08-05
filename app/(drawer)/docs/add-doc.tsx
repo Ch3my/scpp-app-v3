@@ -1,250 +1,147 @@
-
+import CategoriaSheet from "@/components/CategoriaSheet";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import TipoDocSheet from "@/components/TipoDocSheet";
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
+import useStore from "@/store/useStore";
+import BottomSheet from "@gorhom/bottom-sheet";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { DateTime } from "luxon";
-import { useCallback, useContext, useState } from 'react';
-import {
-    FlatList,
-    ScrollView,
-    View
-} from 'react-native';
-import MaskInput, { createNumberMask } from 'react-native-mask-input';
-import {
-    Dialog,
-    IconButton,
-    List,
-    Portal,
-    Snackbar,
-    TextInput,
-    useTheme
-} from 'react-native-paper';
-import { GetAppStyles } from "../../styles/styles";
-import { ScppContext } from "../ScppContext";
+import { useRef, useState } from "react";
+import { ScrollView, TextInput, TouchableOpacity } from "react-native";
 
-export default () => {
-    const theme = useTheme();
-    const appStyles = GetAppStyles(theme)
-    const { sessionHash, apiPrefix, setRefetchdocs, tipoDocumentos, categorias } = useContext(ScppContext);
+const AddDoc = () => {
+    const router = useRouter();
+    const queryClient = useQueryClient();
+    const colorScheme = useColorScheme();
+    const themeColors = colorScheme === 'dark' ? Colors.dark : Colors.light;
+    const { sessionHash, apiUrl, tipoDocumentos, categorias } = useStore();
 
-    const [showDocDatePicker, setShowDocDatePicker] = useState<boolean>(false)
-    const [showCategoriaInput, setShowCategoriaInput] = useState<boolean>(true)
-    const [showCategoriaList, setShowCategoriaList] = useState<boolean>(false)
-    const [showTipoDocList, setShowTipoDocList] = useState<boolean>(false)
-    const [apiCalling, setApiCalling] = useState<boolean>(false)
+    const [proposito, setProposito] = useState('');
+    const [monto, setMonto] = useState('');
+    const [fecha, setFecha] = useState(new Date());
+    const [tipoDocId, setTipoDocId] = useState<number>(1);
+    const [categoriaId, setCategoriaId] = useState<number | null>(null);
 
-    const [showSnackBar, setShowSnackBar] = useState<boolean>(false)
-    const [snackbarMsg, setSnackbarMsg] = useState<string>("")
-    const [negativeMonto, setNegativeMonto] = useState<boolean>(false)
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTipoDocSheet, setShowTipoDocSheet] = useState(false);
+    const [showCategoriaSheet, setShowCategoriaSheet] = useState(false);
 
-    let [docDate, setDocDate] = useState<Date>(new Date())
-    let [docCatId, setDocCatId] = useState<number | null>(1)
-    let [docCatName, setDocCatName] = useState<string>("")
-    let [docTipoDocId, setDocTipoDocId] = useState<number>(1)
-    let [docTipoDocName, setDocTipoDocName] = useState<string>("Gasto")
-    let [docProposito, setDocProposito] = useState<string>("")
-    let [docMonto, setDocMonto] = useState<number>(0)
+    const tipoDocBottomSheetRef = useRef<BottomSheet>(null);
+    const categoriaBottomSheetRef = useRef<BottomSheet>(null);
 
-    const onChangeDocDatePicker = useCallback((event: any, selectedDate?: Date) => {
-        setShowDocDatePicker(false)
-        if (selectedDate) {
-            setDocDate(selectedDate)
-        }
-    }, [])
-    const onUpdateCategoria = useCallback(({ id, descripcion }: { id: number | null, descripcion: string }) => {
-        setDocCatId(id)
-        setDocCatName(descripcion)
-        setShowCategoriaList(false)
-    }, [])
-    const onUpdateTipoDoc = useCallback(({ id, descripcion }: { id: number, descripcion: string }) => {
-        setDocTipoDocId(id)
-        setDocTipoDocName(descripcion)
-        setShowTipoDocList(false)
-        if (id != 1) {
-            setShowCategoriaInput(false)
-        }
-        if (id == 1) {
-            setShowCategoriaInput(true)
-        }
-    }, [])
-    const saveDoc = async () => {
-        setApiCalling(true)
-        setShowSnackBar(false)
-        if (docTipoDocId == 1 && docCatId == 0) {
-            setSnackbarMsg("Selecciona la categoria")
-            setShowSnackBar(true)
-            setApiCalling(false)
-            return
-        }
-        if (docProposito == "") {
-            setSnackbarMsg("Ingresa Proposito")
-            setShowSnackBar(true)
-            setApiCalling(false)
-            return
-        }
-        if (docTipoDocId == 1 && docMonto == 0) {
-            setSnackbarMsg("Ingresa el Monto")
-            setShowSnackBar(true)
-            setApiCalling(false)
-            return
-        }
+    const mutation = useMutation({
+        mutationFn: (newDoc: any) => axios.post(`${apiUrl}/documentos`, newDoc),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['documents'] });
+            router.back();
+        },
+        onError: (error) => {
+            console.error("Error saving document:", error);
+            // Handle error, e.g., show a snackbar
+        },
+    });
 
-        let computedMonto = docMonto
-        if (negativeMonto) {
-            computedMonto *= -1
+    const handleSave = () => {
+        if (!proposito || !monto) {
+            // Handle validation error
+            return;
         }
-
-        let apiArgs: {
-            fk_categoria: number | null;
-            proposito: string;
-            fecha: string;
-            monto: number;
-            fk_tipoDoc: number;
-            sessionHash: string;
-        } = {
-            fk_categoria: null,
-            proposito: docProposito,
-            fecha: DateTime.fromJSDate(docDate).toFormat('yyyy-MM-dd'),
-            monto: computedMonto,
-            fk_tipoDoc: docTipoDocId,
+        const newDoc = {
             sessionHash,
-        }
-        if (docTipoDocId == 1) {
-            apiArgs.fk_categoria = docCatId
-        }
-        let response = await axios.post(apiPrefix + '/documentos', apiArgs)
-        if (response.data.hasErrors) {
-            setSnackbarMsg("Error al guardar documento")
-            setShowSnackBar(true)
-            setApiCalling(false)
-            return
-        }
-        setSnackbarMsg("Documento guardado con Exito")
-        setShowSnackBar(true)
-        setRefetchdocs(true)
-        setApiCalling(false)
-    }
+            proposito,
+            monto: parseFloat(monto),
+            fecha: DateTime.fromJSDate(fecha).toFormat('yyyy-MM-dd'),
+            fk_tipoDoc: tipoDocId,
+            fk_categoria: categoriaId,
+        };
+        mutation.mutate(newDoc);
+    };
 
-    const dollarMask = createNumberMask({
-        prefix: ['$', ' '],
-        delimiter: '.',
-        separator: ',',
-        precision: 0,
-    })
+    const selectedTipoDoc = tipoDocumentos.find(td => td.id === tipoDocId);
+    const selectedCategoria = categorias.find(c => c.id === categoriaId);
 
     return (
-        <View style={{ flex: 1 }}>
+        <ThemedView className="flex-1 p-4">
             <Stack.Screen options={{ headerTitle: "Agregar Documento" }} />
-            <Portal>
-                <Snackbar
-                    duration={2500}
-                    visible={showSnackBar}
-                    style={{ zIndex: 999 }}
-                    onDismiss={() => { setShowSnackBar(false) }}>
-                    {snackbarMsg}
-                </Snackbar>
-            </Portal>
-            <Portal>
-                <Dialog visible={showCategoriaList} onDismiss={() => { setShowCategoriaList(false) }} style={{ height: '80%' }}>
-                    <Dialog.Title>Categoria</Dialog.Title>
-                    <Dialog.ScrollArea>
-                        <FlatList
-                            data={categorias}
-                            renderItem={({ item }) =>
-                                <List.Item
-                                    title={item.descripcion}
-                                    key={item.id}
-                                    onPress={() => { onUpdateCategoria({ id: item.id, descripcion: item.descripcion }) }} />
-                            } />
-                    </Dialog.ScrollArea>
-                </Dialog>
-                <Dialog visible={showTipoDocList} onDismiss={() => { setShowTipoDocList(false) }}>
-                    <Dialog.Title>Tipo Documento</Dialog.Title>
-                    <Dialog.ScrollArea>
-                        <FlatList
-                            data={tipoDocumentos}
-                            renderItem={({ item }) =>
-                                <List.Item
-                                    title={item.descripcion}
-                                    key={item.id}
-                                    onPress={() => { onUpdateTipoDoc({ id: item.id, descripcion: item.descripcion }) }} />
-                            } />
-                    </Dialog.ScrollArea>
-                </Dialog>
-            </Portal>
-            <View style={appStyles.btnRow}>
-                <IconButton
-                    style={appStyles.btnRowBtn}
-                    icon="content-save"
-                    mode="contained-tonal"
-                    containerColor={theme.colors.primary}
-                    iconColor={theme.colors.onPrimary}
-                    size={30}
-                    onPress={saveDoc}
-                    disabled={apiCalling}
+            <ScrollView>
+                <ThemedText className="mb-2">Propósito</ThemedText>
+                <TextInput
+                    value={proposito}
+                    onChangeText={setProposito}
+                    className="border border-gray-400 rounded p-2 mb-4 dark:text-white dark:border-gray-600"
+                    placeholder="Ej: Compra de insumos"
+                    placeholderTextColor={themeColors.text}
                 />
-            </View>
-            <View style={appStyles.container}>
-                <ScrollView>
-                    <TextInput mode="flat" label='Monto'
-                        inputMode='numeric'
-                        value={docMonto.toString()}
-                        dense={true}
-                        style={{ marginBottom: 5 }}
-                        right={<TextInput.Icon icon="minus-circle" onPress={() => { setNegativeMonto(!negativeMonto) }}
-                            color={() => negativeMonto ? "red" : theme.colors.onSurfaceVariant} />}
-                        render={props =>
-                            <MaskInput
-                                {...props}
-                                onChangeText={(masked, unmasked) => {
-                                    setDocMonto(parseInt(unmasked))
-                                }}
-                                mask={dollarMask}
-                            />
-                        } />
-                    <TextInput label='Proposito'
-                        style={{ marginBottom: 5 }}
-                        mode="flat"
-                        dense={true}
-                        value={docProposito}
-                        autoCapitalize="none"
-                        onChangeText={text => setDocProposito(text)} />
-                    <TextInput
-                        style={{ marginBottom: 5 }}
-                        label="Fecha"
-                        mode="flat"
-                        dense={true}
-                        editable={false}
-                        value={DateTime.fromJSDate(docDate).toFormat('yyyy-MM-dd')}
-                        right={<TextInput.Icon icon="calendar" onPress={() => { setShowDocDatePicker(true) }} />}
+
+                <ThemedText className="mb-2">Monto</ThemedText>
+                <TextInput
+                    value={monto}
+                    onChangeText={setMonto}
+                    className="border border-gray-400 rounded p-2 mb-4 dark:text-white dark:border-gray-600"
+                    placeholder="10000"
+                    keyboardType="numeric"
+                    placeholderTextColor={themeColors.text}
+                />
+
+                <ThemedText className="mb-2">Fecha</ThemedText>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)} className="border border-gray-400 rounded p-2 mb-4 dark:border-gray-600">
+                    <ThemedText>{DateTime.fromJSDate(fecha).toFormat('dd-MM-yyyy')}</ThemedText>
+                </TouchableOpacity>
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={fecha}
+                        mode="date"
+                        display="default"
+                        onChange={(event, selectedDate) => {
+                            setShowDatePicker(false);
+                            if (selectedDate) {
+                                setFecha(selectedDate);
+                            }
+                        }}
                     />
-                    {showDocDatePicker && (
-                        <DateTimePicker testID="dateTimePicker" value={docDate} mode="date"
-                            display="default" onChange={onChangeDocDatePicker}
-                        />
-                    )}
-                    <TextInput
-                        style={{ marginBottom: 5 }}
-                        label="Tipo Doc"
-                        mode="flat"
-                        dense={true}
-                        editable={false}
-                        value={docTipoDocName}
-                        right={<TextInput.Icon icon="chevron-down" onPress={() => { setShowTipoDocList(true) }} />}
-                    />
-                    {showCategoriaInput &&
-                        <TextInput
-                            style={{ marginBottom: 5 }}
-                            label="Categoria"
-                            mode="flat"
-                            dense={true}
-                            editable={false}
-                            value={docCatName}
-                            right={<TextInput.Icon icon="chevron-down" onPress={() => { setShowCategoriaList(true) }} />}
-                        />
-                    }
-                </ScrollView>
-            </View>
-        </View>
-    )
-}
+                )}
+
+                <ThemedText className="mb-2">Tipo de Documento</ThemedText>
+                <TouchableOpacity onPress={() => tipoDocBottomSheetRef.current?.expand()} className="border border-gray-400 rounded p-2 mb-4 dark:border-gray-600">
+                    <ThemedText>{selectedTipoDoc?.proposito || 'Seleccionar...'}</ThemedText>
+                </TouchableOpacity>
+
+                {tipoDocId === 1 && (
+                    <>
+                        <ThemedText className="mb-2">Categoría</ThemedText>
+                        <TouchableOpacity onPress={() => categoriaBottomSheetRef.current?.expand()} className="border border-gray-400 rounded p-2 mb-4 dark:border-gray-600">
+                            <ThemedText>{selectedCategoria?.descripcion || 'Seleccionar...'}</ThemedText>
+                        </TouchableOpacity>
+                    </>
+                )}
+
+                <TouchableOpacity onPress={handleSave} className="bg-blue-500 p-3 rounded-lg items-center mt-4">
+                    <ThemedText className="text-white">Guardar</ThemedText>
+                </TouchableOpacity>
+            </ScrollView>
+
+            <TipoDocSheet
+                ref={tipoDocBottomSheetRef}
+                onUpdateTipoDoc={({ id }) => {
+                    setTipoDocId(id);
+                    tipoDocBottomSheetRef.current?.close();
+                }}
+            />
+
+            <CategoriaSheet
+                ref={categoriaBottomSheetRef}
+                onUpdateCategoria={({ id }) => {
+                    setCategoriaId(id);
+                    categoriaBottomSheetRef.current?.close();
+                }}
+            />
+        </ThemedView>
+    );
+};
+
+export default AddDoc;
