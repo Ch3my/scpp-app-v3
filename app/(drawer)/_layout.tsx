@@ -6,6 +6,8 @@ import { Redirect, SplashScreen } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { useEffect } from 'react';
 import { TouchableOpacity } from 'react-native';
+import { configureNumeral } from '../configure-numeral';
+configureNumeral()
 
 export default function DrawerLayout() {
   const iconColor = useThemeColor({}, 'icon');
