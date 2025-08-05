@@ -1,14 +1,19 @@
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import useStore from '@/store/useStore';
 import { useThemeColor } from '@/hooks/useThemeColor';
+import useStore from '@/store/useStore';
 import { DrawerActions } from '@react-navigation/native';
-import { Redirect } from 'expo-router';
+import { Redirect, SplashScreen } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
+import { useEffect } from 'react';
 import { TouchableOpacity } from 'react-native';
 
 export default function DrawerLayout() {
   const iconColor = useThemeColor({}, 'icon');
   const sessionHash = useStore((state) => state.sessionHash);
+
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   if (!sessionHash) {
     return <Redirect href="/login" />;

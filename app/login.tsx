@@ -1,11 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Button, TextInput, Alert } from 'react-native';
-import useStore from '../store/useStore';
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
+import { SplashScreen, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Button, TextInput } from 'react-native';
+import useStore from '../store/useStore';
 
 const LoginScreen = () => {
   const [username, setUsername] = useState('');
@@ -13,6 +13,10 @@ const LoginScreen = () => {
   const setSessionHash = useStore((state) => state.setSessionHash);
   const apiUrl = useStore((state) => state.apiUrl);
   const router = useRouter();
+
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -39,7 +43,9 @@ const LoginScreen = () => {
   return (
     <ThemedView className="flex-1 justify-center items-center p-4">
       <ThemedView className="w-full max-w-sm p-6 border border-gray-300 dark:border-gray-700 rounded-lg">
-        <ThemedText type="title" className="text-center mb-6 text-red-500">Login</ThemedText>
+        <ThemedText type="title" className="text-center mb-6 text-red-500">
+          Login
+        </ThemedText>
         <TextInput
           className="h-12 border border-gray-300 dark:border-gray-700 rounded-lg px-4 mb-4 text-lg text-gray-900 dark:text-white"
           placeholder="Username"
