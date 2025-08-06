@@ -51,7 +51,7 @@ export default function RootLayout() {
       const handleNavigation = async () => {
         if (sessionHash) {
           await fetchInitialData(); // Fetch data if we have a session
-          router.replace('/dashboard');
+          router.replace('/docs');
         } else {
           router.replace('/login');
         }

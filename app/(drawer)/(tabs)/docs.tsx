@@ -12,11 +12,11 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomSheet from "@gorhom/bottom-sheet";
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { Stack, router } from "expo-router";
+import { Stack, router, useFocusEffect } from "expo-router";
 import { DateTime } from "luxon";
 import numeral from "numeral";
 import { useCallback, useRef, useState } from "react";
-import { FlatList, TouchableOpacity, View } from "react-native";
+import { FlatList, Pressable, RefreshControl, View } from "react-native";
 
 const fetchDocuments = async ({ queryKey }: any) => {
     const [_key, { fechaInicio, fechaTermino, tipoDocFilterId, categoriaFilterId, searchPhrase, searchPhraseIgnoreOtherFilters, sessionHash, apiUrl }] = queryKey;
@@ -51,7 +51,7 @@ export default function DocsScreen() {
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? Colors.dark : Colors.light;
 
-    const { sessionHash, apiUrl, tipoDocumentos } = useStore();
+    const { sessionHash, apiUrl, tipoDocumentos, docsNeedRefetch, setDocsNeedRefetch } = useStore();
 
     const [fechaInicio, setFechaInicio] = useState<DateTime | null>(DateTime.local().startOf("month"));
     const [fechaTermino, setFechaTermino] = useState<DateTime | null>(DateTime.local().endOf("month"));
@@ -68,6 +68,15 @@ export default function DocsScreen() {
         queryFn: fetchDocuments,
         enabled: !!sessionHash,
     });
+
+    useFocusEffect(
+        useCallback(() => {
+            if (docsNeedRefetch) {
+                refetch();
+                setDocsNeedRefetch(false);
+            }
+        }, [docsNeedRefetch, refetch, setDocsNeedRefetch])
+    );
 
     const deleteMutation = useMutation({
         mutationFn: deleteDocument,
@@ -128,39 +137,44 @@ export default function DocsScreen() {
             <Stack.Screen options={{
                 headerTitle: "Documentos",
                 headerRight: () => (
-                    <TouchableOpacity onPress={() => router.push('/(drawer)/food')} className="mr-4">
+                    <Pressable onPress={() => router.push('/(drawer)/food')} className="mr-4">
                         <Ionicons name="fast-food-outline" size={24} color={Colors.light.tint} />
-                    </TouchableOpacity>
+                    </Pressable>
                 )
             }} />
 
             {/* Toolbar */}
             <View className="flex-row justify-between items-center p-2 bg-gray-100 dark:bg-gray-900">
                 <View className="flex-row items-center">
-                    <TouchableOpacity onPress={() => router.push('/docs/add-doc')} className="p-2 bg-blue-500 rounded-full">
+                    <Pressable onPress={() => router.push('/docs/add-doc')} className="p-2 bg-blue-500 rounded-full">
                         <Ionicons name="add" size={24} color="white" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowFiltersModal(true)} className="p-2 ml-2 bg-gray-300 dark:bg-gray-700 rounded-full">
+                    </Pressable>
+                    <Pressable onPress={() => setShowFiltersModal(true)} className="p-2 ml-2 bg-gray-300 dark:bg-gray-700 rounded-full">
                         <Ionicons name="filter" size={20} color={themeColors.text} />
-                    </TouchableOpacity>
+                    </Pressable>
                 </View>
                 <ThemedText className="text-lg font-bold">${numeral(sumaTotalDocs).format('0,0')}</ThemedText>
-                <TouchableOpacity onPress={() => tipoDocBottomSheetRef.current?.expand()} className="p-2 bg-gray-300 dark:bg-gray-700 rounded-lg">
+                <Pressable onPress={() => tipoDocBottomSheetRef.current?.expand()} className="p-2 bg-gray-300 dark:bg-gray-700 rounded-lg">
                     <ThemedText>{tipoDocFilterName}</ThemedText>
-                </TouchableOpacity>
+                </Pressable>
             </View>
 
             {/* Document List */}
             <FlatList
                 data={docsList}
-                onRefresh={refetch}
-                refreshing={isFetching}
                 ListHeaderComponent={<DocHeader />}
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={renderItem}
                 ListEmptyComponent={<ThemedText className="text-center mt-5">No hay documentos</ThemedText>}
                 initialNumToRender={15}
                 contentContainerStyle={{ paddingBottom: 80 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isFetching}
+                        onRefresh={refetch}
+                        tintColor={themeColors.text}
+                    />
+                }
             />
 
             <ListDocsFilters

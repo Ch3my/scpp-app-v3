@@ -19,7 +19,7 @@ const AddDoc = () => {
     const queryClient = useQueryClient();
     const colorScheme = useColorScheme();
     const themeColors = colorScheme === 'dark' ? Colors.dark : Colors.light;
-    const { sessionHash, apiUrl, tipoDocumentos, categorias } = useStore();
+    const { sessionHash, apiUrl, tipoDocumentos, categorias, setDocsNeedRefetch } = useStore();
 
     const [proposito, setProposito] = useState('');
     const [monto, setMonto] = useState('');
@@ -28,8 +28,6 @@ const AddDoc = () => {
     const [categoriaId, setCategoriaId] = useState<number | null>(null);
 
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [showTipoDocSheet, setShowTipoDocSheet] = useState(false);
-    const [showCategoriaSheet, setShowCategoriaSheet] = useState(false);
 
     const tipoDocBottomSheetRef = useRef<BottomSheet>(null);
     const categoriaBottomSheetRef = useRef<BottomSheet>(null);
@@ -37,7 +35,13 @@ const AddDoc = () => {
     const mutation = useMutation({
         mutationFn: (newDoc: any) => axios.post(`${apiUrl}/documentos`, newDoc),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['documents'] });
+            setDocsNeedRefetch(true);
+            // Reset form
+            setProposito('');
+            setMonto('');
+            setFecha(new Date());
+            setTipoDocId(1);
+            setCategoriaId(null);
             router.back();
         },
         onError: (error) => {
@@ -108,7 +112,7 @@ const AddDoc = () => {
 
                 <ThemedText className="mb-2">Tipo de Documento</ThemedText>
                 <TouchableOpacity onPress={() => tipoDocBottomSheetRef.current?.expand()} className="border border-gray-400 rounded p-2 mb-4 dark:border-gray-600">
-                    <ThemedText>{selectedTipoDoc?.proposito || 'Seleccionar...'}</ThemedText>
+                    <ThemedText>{selectedTipoDoc?.descripcion || 'Seleccionar...'}</ThemedText>
                 </TouchableOpacity>
 
                 {tipoDocId === 1 && (
@@ -120,8 +124,12 @@ const AddDoc = () => {
                     </>
                 )}
 
-                <TouchableOpacity onPress={handleSave} className="bg-blue-500 p-3 rounded-lg items-center mt-4">
-                    <ThemedText className="text-white">Guardar</ThemedText>
+                <TouchableOpacity
+                    onPress={handleSave}
+                    disabled={mutation.isPending}
+                    className={`p-3 rounded-lg items-center mt-4 ${mutation.isPending ? 'bg-gray-400' : 'bg-blue-500'}`}
+                >
+                    <ThemedText className="text-white">{mutation.isPending ? 'Guardando...' : 'Guardar'}</ThemedText>
                 </TouchableOpacity>
             </ScrollView>
 

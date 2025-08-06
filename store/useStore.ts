@@ -1,3 +1,4 @@
+
 import { Categoria } from '@/models/Categoria';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
@@ -8,11 +9,13 @@ interface StoreState {
   apiUrl: string | null;
   sessionHash: string | null;
   categorias: Categoria[];
-  tipoDocumentos: any[]; // Define a proper type if available
+  tipoDocumentos: any[];
   isLoading: boolean;
   error: string | null;
+  docsNeedRefetch: boolean;
   setApiUrl: (url: string) => void;
   setSessionHash: (hash: string) => void;
+  setDocsNeedRefetch: (needsRefetch: boolean) => void;
   fetchInitialData: () => Promise<void>;
   reset: () => void;
 }
@@ -26,8 +29,10 @@ const useStore = create<StoreState>()(
       tipoDocumentos: [],
       isLoading: false,
       error: null,
+      docsNeedRefetch: false,
       setApiUrl: (url) => set({ apiUrl: url }),
       setSessionHash: (hash) => set({ sessionHash: hash }),
+      setDocsNeedRefetch: (needsRefetch) => set({ docsNeedRefetch: needsRefetch }),
       fetchInitialData: async () => {
         const { apiUrl, sessionHash } = get();
         if (!sessionHash || !apiUrl) return;
@@ -55,12 +60,13 @@ const useStore = create<StoreState>()(
         tipoDocumentos: [],
         isLoading: false,
         error: null,
+        docsNeedRefetch: false,
       }),
     }),
     {
-      name: 'scpp-storage', // unique name
+      name: 'scpp-storage',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ apiUrl: state.apiUrl, sessionHash: state.sessionHash }), // Only persist these fields
+      partialize: (state) => ({ apiUrl: state.apiUrl, sessionHash: state.sessionHash }),
     }
   )
 );
